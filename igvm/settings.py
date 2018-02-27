@@ -3,6 +3,10 @@
 Copyright (c) 2018, InnoGames GmbH
 """
 
+import logging
+
+logging.getLogger('paramiko').setLevel(logging.WARNING)
+
 from igvm.hypervisor_preferences import (
     HashDifference,
     HypervisorAttributeValue,
