@@ -564,8 +564,18 @@ class MigrationTest(IGVMTest):
         migratevm(self.vm_obj['hostname'])
         self.check_vm_present()
 
-    def test_offline_migration(self):
-        migratevm(self.vm_obj['hostname'], self.new_hv_name, offline=True)
+    def test_offline_migration_netcat(self):
+        migratevm(
+            self.vm_obj['hostname'], self.new_hv_name, offline=True,
+            offline_transport='netcat',
+        )
+        self.check_vm_present()
+
+    def test_offline_migration_drbd(self):
+        migratevm(
+            self.vm_obj['hostname'], self.new_hv_name, offline=True,
+            offline_transport='drbd',
+        )
         self.check_vm_present()
 
     def test_reject_out_of_sync_serveradmin(self):
@@ -624,14 +634,27 @@ class MigrationTest(IGVMTest):
                 runpuppet=True,
             )
 
-    def test_rollback(self):
+    def test_rollback_netcat(self):
         self.vm_obj['puppet_environment'] = 'doesnotexist'
         self.vm_obj.commit()
 
         with self.assertRaises(IGVMError):
             migratevm(
                 self.vm_obj['hostname'], self.new_hv_name, offline=True,
-                runpuppet=True,
+                runpuppet=True, offline_transport='netcat',
+            )
+
+        self.check_vm_present()
+        self.check_vm_absent(self.new_hv_name)
+
+    def test_rollback_drbd(self):
+        self.vm_obj['puppet_environment'] = 'doesnotexist'
+        self.vm_obj.commit()
+
+        with self.assertRaises(IGVMError):
+            migratevm(
+                self.vm_obj['hostname'], self.new_hv_name, offline=True,
+                runpuppet=True, offline_transport='drbd',
             )
 
         self.check_vm_present()
