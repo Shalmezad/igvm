@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 @run_in_transaction
 def migratevm(vm_hostname, hypervisor_hostname=None, newip=None,
               runpuppet=False, maintenance=False, offline=False, tx=None,
-              ignore_reserved=False):
+              ignore_reserved=False, offline_transport='drbd'):
     """Migrate a VM to a new hypervisor."""
     assert tx is not None, 'tx populated by run_in_transaction'
 
@@ -88,10 +88,7 @@ def migratevm(vm_hostname, hypervisor_hostname=None, newip=None,
         vm.set_state('maintenance', tx=tx)
 
     # Finally migrate the VM
-    if offline and was_running:
-        vm.shutdown(tx=tx)
-
-    vm.hypervisor.migrate_vm(vm, hypervisor, offline, tx)
+    vm.hypervisor.migrate_vm(vm, hypervisor, offline, offline_transport, tx)
 
     previous_hypervisor = vm.hypervisor
     vm.hypervisor = hypervisor
