@@ -674,8 +674,13 @@ class Hypervisor(Host):
                 'Listening netcat already found on destination hypervisor.'
             )
 
-    def kill_netcat(self, port):
-        self.run('pkill -f "^/bin/nc.traditional -l -p {}"'.format(port))
+    def kill_netcat_to_device(self, port):
+        # Warn only because if netcat is already dead, kill will fail.
+        with settings(warn_only=True):
+            self.run(
+                'pkill -f "^/bin/nc.traditional -l -p {}"'.format(port)
+                .format(self.fqdn),
+            )
 
     def netcat_to_device(self, device, tx=None):
         dev_minor = self.run('stat -L -c "%T" {}'.format(device), silent=True)
@@ -690,7 +695,7 @@ class Hypervisor(Host):
             .format(port, device)
         )
         if tx:
-            tx.on_rollback('kill netcat', self.kill_netcat, port)
+            tx.on_rollback('kill netcat', self.kill_netcat_to_device, port)
         return self.fqdn, port
 
     def device_to_netcat(self, device, size, listener, tx=None):

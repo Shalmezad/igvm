@@ -478,6 +478,13 @@ class VM(Host):
         self.run('/bin/chmod 0600 /swap')
         self.run('/sbin/mkswap /swap')
 
+    def kill_puppet(self):
+        with settings(warn_only=True):
+            self.run(
+                'pkill -9 -f "/usr/bin/puppet agent -v --fqdn={}"'
+                .format(self.fqdn),
+            )
+
     def run_puppet(self, clear_cert, tx):
         """Runs Puppet in chroot on the hypervisor."""
 
@@ -494,28 +501,23 @@ class VM(Host):
 
         self.block_autostart()
 
+        self.run(
+            '/usr/bin/puppet agent -v --fqdn={}'
+            ' --server {} --ca_server {} --no-report'
+            ' --waitforcert=60 --onetime --no-daemonize'
+            ' --skip_tags=chroot_unsafe'
+            ' && touch /tmp/puppet_success'
+            ' | tee {} ;'
+            ' test -f /tmp/puppet_success'
+            .format(
+                self.fqdn,
+                self.dataset_obj['puppet_master'],
+                self.dataset_obj['puppet_ca'],
+                '/var/log/puppetrun_igvm',
+            )
+        )
         if tx:
-            tx.on_rollback(
-                'Kill puppet',
-                self.run,
-                'pkill -9 -f "/usr/bin/puppet agent -v --fqdn={}"'
-                .format(self.fqdn)
-            )
-            self.run(
-                '/usr/bin/puppet agent -v --fqdn={}'
-                ' --server {} --ca_server {} --no-report'
-                ' --waitforcert=60 --onetime --no-daemonize'
-                ' --skip_tags=chroot_unsafe'
-                ' && touch /tmp/puppet_success'
-                ' | tee {} ;'
-                ' test -f /tmp/puppet_success'
-                .format(
-                    self.fqdn,
-                    self.dataset_obj['puppet_master'],
-                    self.dataset_obj['puppet_ca'],
-                    '/var/log/puppetrun_igvm',
-                )
-            )
+            tx.on_rollback('Kill puppet', self.kill_puppet)
 
         self.unblock_autostart()
 
