@@ -4,6 +4,7 @@ Copyright (c) 2018, InnoGames GmbH
 """
 
 import logging
+from copy import copy
 
 log = logging.getLogger(__name__)
 
@@ -47,11 +48,21 @@ class Transaction(object):
                 )
         self._actions = None  # Invalidate transaction
 
-    def checkpoint(self):
+    def checkpoint(self, position=[]):
         """Marks a safe state within the transaction. All previous on_rollback
         actions will not be invoked, even if the transaction fails later on."""
-        log.debug('Checkpoint reached, all previous actions are now permanent')
-        self._actions = []
+        if position == []:
+            log.debug(
+                'Checkpoint reached, all previous actions are now permanent'
+            )
+        else:
+            log.debug(
+                'Checkpoint reached, restoring to given position'
+            )
+        self._actions = position
+
+    def copy_checkpoint(self):
+        return copy(self._actions)
 
 
 def wrap_in_transaction(fn):
