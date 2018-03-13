@@ -5,44 +5,15 @@ Copyright (c) 2018, InnoGames GmbH
 
 from StringIO import StringIO
 
-from adminapi.dataset import Query
-from adminapi.filters import ExactMatch, Startswith, Or
-
 import fabric.api
 import fabric.state
 from fabric.contrib import files
 
 from paramiko import transport
-from igvm.exceptions import ConfigError, RemoteCommandError, InvalidStateError
-from igvm.settings import (
-    COMMON_FABRIC_SETTINGS,
-    VM_ATTRIBUTES,
-    HYPERVISOR_ATTRIBUTES,
-)
+from igvm.exceptions import ConfigError, RemoteCommandError
+from igvm.settings import COMMON_FABRIC_SETTINGS
 from igvm.utils.lazy_property import lazy_property
 from igvm.utils.network import get_network_config
-
-
-def get_server(hostname, servertype):
-    """Get a server from Serveradmin by hostname and servertype
-
-    The function is accepting hostnames in any length as long as it resolves
-    to a single server on Serveradmin.  It returns the adminapi DatasetObject.
-    """
-
-    conditions = [ExactMatch(hostname)]
-    if hostname.endswith('.ig.local'):
-        conditions.append(ExactMatch(hostname[:-len('.ig.local')]))
-    else:
-        conditions.append(Startswith(hostname + '.'))
-
-    return Query(
-        {
-            'servertype': servertype,
-            'hostname': Or(*conditions),
-        },
-        HYPERVISOR_ATTRIBUTES if servertype == 'hypervisor' else VM_ATTRIBUTES
-    ).get()
 
 
 def with_fabric_settings(fn):
@@ -58,24 +29,12 @@ def with_fabric_settings(fn):
 class Host(object):
     """A remote host on which commands can be executed."""
 
-    def __init__(self, name_or_obj, ignore_reserved=False):
-        if isinstance(name_or_obj, (str, unicode)):
-            self.dataset_obj = get_server(name_or_obj, self.servertype)
+    def __init__(self, dataset_obj):
+        self.dataset_obj = dataset_obj
+        if dataset_obj['hostname'].endswith('.ig.local'):
+            self.fqdn = dataset_obj['hostname']
         else:
-            self.dataset_obj = name_or_obj
-
-        if self.dataset_obj['hostname'].endswith('.ig.local'):
-            self.fqdn = self.dataset_obj['hostname']
-        else:
-            self.fqdn = self.dataset_obj['hostname'] + '.ig.local'
-
-        if (
-            not ignore_reserved and
-            self.dataset_obj['state'] == 'online_reserved'
-        ):
-            raise InvalidStateError(
-                'Server "{0}" is online_reserved.'.format(self.fqdn)
-            )
+            self.fqdn = dataset_obj['hostname'] + '.ig.local'
 
     def __str__(self):
         return self.fqdn
@@ -146,15 +105,13 @@ class Host(object):
             fabric.api.get(path, fd)
             return fd.getvalue()
 
-    def reload(self):
+    def reload(self, dataset_obj):
         """Reloads the server object from serveradmin."""
         if self.dataset_obj.is_dirty():
             raise ConfigError(
                 'Serveradmin object must be committed before reloading'
             )
-        self.dataset_obj = get_server(
-            self.dataset_obj['hostname'], self.servertype
-        )
+        self.dataset_obj = dataset_obj
 
     @lazy_property  # Requires fabric call on hypervisor, evaluate lazily.
     def network_config(self):
