@@ -31,10 +31,11 @@ class Host(object):
 
     def __init__(self, dataset_obj):
         self.dataset_obj = dataset_obj
-        if dataset_obj['hostname'].endswith('.ig.local'):
-            self.fqdn = dataset_obj['hostname']
-        else:
-            self.fqdn = dataset_obj['hostname'] + '.ig.local'
+        self.fqdn = dataset_obj['hostname']
+
+        # TODO: Remove
+        if not self.fqdn.endswith('.ig.local'):
+            self.fqdn += '.ig.local'
 
     def __str__(self):
         return self.fqdn
